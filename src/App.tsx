@@ -22,6 +22,7 @@ import { Pairing } from "./pages/Pairing";
 import { useStore } from "./StoreContext";
 import { getVersion } from "@tauri-apps/api/app";
 import { checkForUpdates } from "./update";
+import logo from "./iloader.svg";
 
 function App() {
   const [operationState, setOperationState] = useState<OperationState | null>(
@@ -117,7 +118,10 @@ function App() {
 
   return (
     <main className="container">
-      <h1>iloader</h1>
+      <h1 className="title">
+        <img src={logo} alt="iloader logo" className="logo" />
+        iloader
+      </h1>
       <h4>Version {version}</h4>
       <div className="cards-container">
         <div className="card-dark">

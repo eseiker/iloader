@@ -131,3 +131,14 @@ h2 {
   border: 1px solid var(--elements);
   color: var(--foreground);
 }
+
+.logo {
+  width: 2em;
+  height: 2em;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
