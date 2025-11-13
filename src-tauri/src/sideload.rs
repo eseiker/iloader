@@ -87,36 +87,29 @@ pub async fn install_sidestore_operation(
     let op = Operation::new("install_sidestore".to_string(), &window);
     op.start("download")?;
     // TODO: Cache & check version to avoid re-downloading
-    let url = if live_container {
+    let (filename, url) = if live_container {
         if nightly {
-            "https://github.com/LiveContainer/LiveContainer/releases/download/nightly/LiveContainer+SideStore.ipa"
+            ("LiveContainerSideStore-Nightly.ipa", "https://github.com/LiveContainer/LiveContainer/releases/download/nightly/LiveContainer+SideStore.ipa")
         } else {
-            "https://github.com/LiveContainer/LiveContainer/releases/latest/download/LiveContainer+SideStore.ipa"
+            ("LiveContainerSideStore.ipa", "https://github.com/LiveContainer/LiveContainer/releases/latest/download/LiveContainer+SideStore.ipa")
         }
+    } else if nightly {
+        (
+            "SideStore-Nightly.ipa",
+            "https://github.com/SideStore/SideStore/releases/download/nightly/SideStore.ipa",
+        )
     } else {
-        if nightly {
-            "https://github.com/SideStore/SideStore/releases/download/nightly/SideStore.ipa"
-        } else {
-            "https://github.com/SideStore/SideStore/releases/latest/download/SideStore.ipa"
-        }
+        (
+            "SideStore.ipa",
+            "https://github.com/SideStore/SideStore/releases/latest/download/SideStore.ipa",
+        )
     };
+
     let dest = handle
         .path()
         .temp_dir()
         .map_err(|e| format!("Failed to get temp dir: {:?}", e))?
-        .join(if live_container {
-            if nightly {
-                "LiveContainerSideStore-Nightly.ipa"
-            } else {
-                "LiveContainerSideStore.ipa"
-            }
-        } else {
-            if nightly {
-                "SideStore-Nightly.ipa"
-            } else {
-                "SideStore.ipa"
-            }
-        });
+        .join(filename);
     op.fail_if_err("download", download(url, &dest).await)?;
     op.move_on("download", "install")?;
     let device = {

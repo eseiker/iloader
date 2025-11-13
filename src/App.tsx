@@ -174,7 +174,7 @@ function App() {
             </button>
             <button
               onClick={() => {
-                //if (!ensuredLoggedIn() || !ensureSelectedDevice()) return;
+                if (!ensuredLoggedIn() || !ensureSelectedDevice()) return;
                 startOperation(installSideStoreOperation, {
                   nightly: true,
                   liveContainer: true,
