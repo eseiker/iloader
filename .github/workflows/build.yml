@@ -15,6 +15,9 @@ jobs:
   build:
     permissions:
       contents: write
+    env:
+      HAVE_SIGNING_SECRETS: ${{ secrets.DEV_ID_P12_BASE64 != '' && secrets.DEV_ID_P12_PASSWORD != '' && secrets.DEV_IDENTITY_NAME != '' }}
+      HAVE_NOTARIZE_SECRETS: ${{ secrets.NOTARIZE_APPLE_ID != '' && secrets.NOTARIZE_APP_SPECIFIC_PASS != '' && secrets.NOTARIZE_TEAM_ID != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -93,11 +96,31 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ (matrix.platform == 'macos-latest' || matrix.platform == 'macos-15-intel') && env.HAVE_SIGNING_SECRETS == 'true' && secrets.DEV_ID_P12_BASE64 || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ (matrix.platform == 'macos-latest' || matrix.platform == 'macos-15-intel') && env.HAVE_SIGNING_SECRETS == 'true' && secrets.DEV_ID_P12_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ (matrix.platform == 'macos-latest' || matrix.platform == 'macos-15-intel') && env.HAVE_SIGNING_SECRETS == 'true' && secrets.DEV_IDENTITY_NAME || '' }}
+          APPLE_TEAM_ID: ${{ (matrix.platform == 'macos-latest' || matrix.platform == 'macos-15-intel') && env.HAVE_SIGNING_SECRETS == 'true' && secrets.NOTARIZE_TEAM_ID || '' }}
         with:
           args: ${{ matrix.args }} ${{ github.event_name != 'release' && ' --config src-tauri/ci.conf.json' || '' }}
           includeUpdaterJson: ${{ github.event_name == 'release' }}
           releaseId: ${{ github.event_name == 'release' && github.event.release.id || '' }}
           assetNamePattern: "[name]-[platform]-[arch][ext]"
+
+      - name: Notarize & Staple DMG
+        if: (matrix.platform == 'macos-latest' || matrix.platform == 'macos-15-intel') && env.HAVE_NOTARIZE_SECRETS == 'true'
+        run: |
+          DMG_PATH=$(find src-tauri/target -name "*.dmg" -print -quit)
+          if [ -z "$DMG_PATH" ]; then
+            echo "No DMG found to notarize" >&2
+            exit 1
+          fi
+          echo "Submitting $DMG_PATH to Apple notarization…"
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "${{ secrets.NOTARIZE_APPLE_ID }}" \
+            --password "${{ secrets.NOTARIZE_APP_SPECIFIC_PASS }}" \
+            --team-id "${{ secrets.NOTARIZE_TEAM_ID }}" \
+            --wait --verbose
+          xcrun stapler staple "$DMG_PATH"
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
