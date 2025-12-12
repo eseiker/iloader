@@ -28,8 +28,6 @@ jobs:
             args: "--bundles rpm"
           - platform: "ubuntu-22.04"
             args: "--bundles appimage"
-          - platform: "ubuntu-22.04-arm"
-            args: "--bundles deb"
           - platform: "windows-latest"
             args: ""
           - platform: "macos-latest"
