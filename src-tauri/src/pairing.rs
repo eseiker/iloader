@@ -22,6 +22,7 @@ const PAIRING_APPS: &[(&str, &str)] = &[
     ("StikTest", "stiktest_pairing.plist"),
     ("Protokolle", "pairingFile.plist"),
     ("Antrag", "pairingFile.plist"),
+    ("SparseBox", "pairingFile.plist"),
 ];
 
 async fn pairing_file(
