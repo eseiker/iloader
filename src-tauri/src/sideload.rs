@@ -1,19 +1,19 @@
 use std::path::PathBuf;
 
 use crate::{
-    account::get_developer_session,
+    account::SideloaderMutex,
     device::{get_provider, DeviceInfoMutex},
     operation::Operation,
     pairing::{get_sidestore_info, place_pairing},
 };
-use isideload::{sideload::sideload_app, SideloadConfiguration};
+use isideload::sideload::application::SpecialApp;
 use tauri::{AppHandle, Manager, State, Window};
 
 pub async fn sideload(
-    handle: AppHandle,
     device_state: State<'_, DeviceInfoMutex>,
+    sideloader_state: State<'_, SideloaderMutex>,
     app_path: String,
-) -> Result<(), String> {
+) -> Result<Option<SpecialApp>, String> {
     let device = {
         let device_lock = device_state.lock().unwrap();
         match &*device_lock {
@@ -24,41 +24,43 @@ pub async fn sideload(
 
     let provider = get_provider(&device).await?;
 
-    let config = SideloadConfiguration::default()
-        .set_machine_name("iloader".to_string())
-        .set_store_dir(
-            handle
-                .path()
-                .app_data_dir()
-                .map_err(|e| format!("Failed to get app data dir: {:?}", e))?,
-        );
+    let mut sideloader = {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        match sideloader_guard.take() {
+            Some(s) => s,
+            None => return Err("Not logged in".to_string()),
+        }
+    };
 
-    let dev_session = get_developer_session().await.map_err(|e| e.to_string())?;
+    let result = async {
+        sideloader
+            .install_app(&provider, app_path.into(), false)
+            .await
+            .map_err(|e| e.to_string())
+    }
+    .await;
 
-    sideload_app(&provider, &dev_session, app_path.into(), config)
-        .await
-        .map_err(|e| {
-            match e {
-                isideload::Error::Certificate(s) if s == "You have too many certificates!" => {
-                    "You have too many certificates. Revoke one by clicking \"Certificates\" and \"Revoke\".".to_string()
-                }
-                _ => e.to_string(),
-            }
-        })?;
+    {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        *sideloader_guard = Some(sideloader);
+    }
 
-    Ok(())
+    result
 }
 
 #[tauri::command]
 pub async fn sideload_operation(
-    handle: AppHandle,
     window: Window,
     device_state: State<'_, DeviceInfoMutex>,
+    sideloader_state: State<'_, SideloaderMutex>,
     app_path: String,
 ) -> Result<(), String> {
     let op = Operation::new("sideload".to_string(), &window);
     op.start("install")?;
-    op.fail_if_err("install", sideload(handle, device_state, app_path).await)?;
+    op.fail_if_err(
+        "install",
+        sideload(device_state, sideloader_state, app_path).await,
+    )?;
     op.complete("install")?;
     Ok(())
 }
@@ -68,6 +70,7 @@ pub async fn install_sidestore_operation(
     handle: AppHandle,
     window: Window,
     device_state: State<'_, DeviceInfoMutex>,
+    sideloader_state: State<'_, SideloaderMutex>,
     nightly: bool,
     live_container: bool,
 ) -> Result<(), String> {
@@ -108,7 +111,12 @@ pub async fn install_sidestore_operation(
     };
     op.fail_if_err(
         "install",
-        sideload(handle, device_state, dest.to_string_lossy().to_string()).await,
+        sideload(
+            device_state,
+            sideloader_state,
+            dest.to_string_lossy().to_string(),
+        )
+        .await,
     )?;
     op.move_on("install", "pairing")?;
     let sidestore_info = op.fail_if_err(

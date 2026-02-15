@@ -64,11 +64,11 @@ export const installLiveContainerOperation: Operation = {
   steps: [
     {
       id: "download",
-      title: "Download SideStore+LiveContainer",
+      title: "Download LiveContainer+SideStore",
     },
     {
       id: "install",
-      title: "Sign & Install SideStore+LiveContainer",
+      title: "Sign & Install LiveContainer+SideStore",
     },
     {
       id: "pairing",

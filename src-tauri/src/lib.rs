@@ -11,7 +11,7 @@ mod operation;
 use crate::{
     account::{
         delete_account, delete_app_id, get_certificates, invalidate_account, list_app_ids,
-        logged_in_as, login_email_pass, login_stored_pass, revoke_certificate,
+        logged_in_as, login_email_pass, login_stored_pass, revoke_certificate, SideloaderMutex,
     },
     device::{list_devices, set_selected_device, DeviceInfoMutex},
     pairing::{installed_pairing_apps, place_pairing_cmd},
@@ -29,6 +29,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
             app.manage(DeviceInfoMutex::new(None));
+            app.manage(SideloaderMutex::new(None));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -5,24 +5,24 @@ import { toast } from "sonner";
 import { useStore } from "../StoreContext";
 
 type AppId = {
-  app_id_id: string;
+  appIdId: string;
   identifier: string;
   name: string;
   features: Record<string, any>;
-  expiration_date: string | null;
+  expirationDate: string | null;
 };
 
 type AppIdsResponse = {
-  app_ids: AppId[];
-  max_quantity: number;
-  available_quantity: number;
+  appIds: AppId[];
+  maxQuantity: number;
+  availableQuantity: number;
 };
 
 export const AppIds = () => {
   const [appIds, setAppIds] = useState<AppId[]>([]);
   const [maxQuantity, setMaxQuantity] = useState<number | null>(null);
   const [availableQuantity, setAvailableQuantity] = useState<number | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState<boolean>(false);
   const loadingRef = useRef<boolean>(false);
@@ -34,9 +34,9 @@ export const AppIds = () => {
       loadingRef.current = true;
       setLoading(true);
       let list = await invoke<AppIdsResponse>("list_app_ids");
-      setAppIds(list.app_ids);
-      setMaxQuantity(list.max_quantity);
-      setAvailableQuantity(list.available_quantity);
+      setAppIds(list.appIds);
+      setMaxQuantity(list.maxQuantity);
+      setAvailableQuantity(list.availableQuantity);
       setLoading(false);
       loadingRef.current = false;
     };
@@ -59,7 +59,7 @@ export const AppIds = () => {
         error: (e) => "Failed to delete App ID: " + e,
       });
     },
-    [setAppIds, loadAppIds]
+    [setAppIds, loadAppIds],
   );
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export const AppIds = () => {
               <tbody>
                 {appIds.map((appId, i) => (
                   <tr
-                    key={appId.app_id_id}
+                    key={appId.appIdId}
                     className={
                       "certificate-item" +
                       (i === appIds.length - 1 ? " cert-item-last" : "")
@@ -107,11 +107,11 @@ export const AppIds = () => {
                   >
                     <td className="cert-item-part">{appId.name}</td>
                     <td className="cert-item-part">
-                      {appId.expiration_date
-                        ? new Date(appId.expiration_date).toLocaleDateString()
+                      {appId.expirationDate
+                        ? new Date(appId.expirationDate).toLocaleDateString()
                         : "Never"}
                     </td>
-                    <td className="cert-item-part">{appId.app_id_id}</td>
+                    <td className="cert-item-part">{appId.appIdId}</td>
                     <td
                       className="cert-item-part"
                       style={{
@@ -123,7 +123,7 @@ export const AppIds = () => {
                     {appIdDeletion && (
                       <td
                         className="cert-item-revoke"
-                        onClick={() => deleteId(appId.app_id_id)}
+                        onClick={() => deleteId(appId.appIdId)}
                       >
                         Delete
                       </td>

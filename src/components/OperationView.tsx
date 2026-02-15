@@ -74,7 +74,8 @@ export default ({
                   <p>{step.title}</p>
                   {failed && (
                     <pre className="operation-extra-details">
-                      {failed.extraDetails}
+                      {/* trim newlines BUT NOT SPACES before */}
+                      {failed.extraDetails.replace(/^\n+/, "")}
                     </pre>
                   )}
                 </div>

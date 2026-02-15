@@ -1,19 +1,22 @@
 use isideload::{
-    developer_session::{DeveloperDeviceType, DeveloperSession, ListAppIdsResponse},
-    AnisetteConfiguration, AppleAccount,
+    anisette::remote_v3::RemoteV3AnisetteProvider,
+    auth::apple_account::AppleAccount,
+    dev::{
+        app_ids::{AppIdsApi, ListAppIdsResponse},
+        certificates::CertificatesApi,
+        developer_session::DeveloperSession,
+    },
+    sideload::{sideloader::Sideloader, SideloaderBuilder},
+    util::keyring_storage::KeyringStorage,
 };
 use keyring::Entry;
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{
-    sync::{mpsc::RecvTimeoutError, Arc, Mutex},
-    time::Duration,
-};
-use tauri::{AppHandle, Emitter, Listener, Manager, Window};
+use std::{sync::Mutex, time::Duration};
+use tauri::{AppHandle, Emitter, Listener, State, Window};
 use tauri_plugin_store::StoreExt;
 
-pub static APPLE_ACCOUNT: OnceCell<Mutex<Option<Arc<AppleAccount>>>> = OnceCell::new();
+pub type SideloaderMutex = Mutex<Option<Sideloader>>;
 
 #[tauri::command]
 pub async fn login_email_pass(
@@ -23,14 +26,14 @@ pub async fn login_email_pass(
     password: String,
     anisette_server: String,
     save_credentials: bool,
-) -> Result<String, String> {
-    let cell = APPLE_ACCOUNT.get_or_init(|| Mutex::new(None));
-    let account = login(&handle, &window, email, password.clone(), anisette_server).await?;
-    let mut account_guard = cell.lock().unwrap();
-    *account_guard = Some(account.clone());
+    sideloader_state: State<'_, SideloaderMutex>,
+) -> Result<(), String> {
+    let account = login(&window, &email, &password, anisette_server).await?;
+    let mut sideloader_guard = sideloader_state.lock().unwrap();
+    *sideloader_guard = Some(account);
 
     if save_credentials {
-        let pass_entry = Entry::new("iloader", &account.apple_id)
+        let pass_entry = Entry::new("iloader", &email)
             .map_err(|e| format!("Failed to create keyring entry for credentials: {:?}.", e))?;
         pass_entry
             .set_password(&password)
@@ -44,33 +47,32 @@ pub async fn login_email_pass(
             .as_array()
             .cloned()
             .unwrap_or_else(std::vec::Vec::new);
-        let value = Value::String(account.apple_id.clone());
+        let value = Value::String(email.clone());
         if !existing_ids.contains(&value) {
             existing_ids.push(value);
         }
         store.set("ids", Value::Array(existing_ids));
     }
-    Ok(account.apple_id.clone())
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn login_stored_pass(
-    handle: AppHandle,
     window: Window,
     email: String,
     anisette_server: String,
-) -> Result<String, String> {
-    let cell = APPLE_ACCOUNT.get_or_init(|| Mutex::new(None));
+    sideloader_state: State<'_, SideloaderMutex>,
+) -> Result<(), String> {
     let pass_entry = Entry::new("iloader", &email)
         .map_err(|e| format!("Failed to create keyring entry for credentials: {:?}.", e))?;
     let password = pass_entry
         .get_password()
         .map_err(|e| format!("Failed to get credentials: {:?}", e))?;
-    let account = login(&handle, &window, email, password, anisette_server).await?;
-    let mut account_guard = cell.lock().unwrap();
-    *account_guard = Some(account.clone());
+    let account = login(&window, &email, &password, anisette_server).await?;
+    let mut sideloader_guard = sideloader_state.lock().unwrap();
+    *sideloader_guard = Some(account);
 
-    Ok(account.apple_id.clone())
+    Ok(())
 }
 
 #[tauri::command]
@@ -95,78 +97,33 @@ pub fn delete_account(handle: AppHandle, email: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn logged_in_as() -> Option<String> {
-    let account = get_account();
-    if let Ok(account) = account {
-        return Some(account.apple_id.clone());
+pub fn logged_in_as(sideloader_state: State<'_, SideloaderMutex>) -> Option<String> {
+    let sideloader_guard = sideloader_state.lock().unwrap();
+    if let Some(account) = &*sideloader_guard {
+        return Some(account.get_email().to_string());
     }
     None
 }
 
 #[tauri::command]
-pub fn invalidate_account() {
-    let cell = APPLE_ACCOUNT.get();
-    if let Some(account) = cell {
-        let mut account_guard = account.lock().unwrap();
-        *account_guard = None;
-    }
-}
-
-pub fn get_account() -> Result<Arc<AppleAccount>, String> {
-    let cell = APPLE_ACCOUNT.get_or_init(|| Mutex::new(None));
-    {
-        let account_guard = cell.lock().unwrap();
-        if let Some(account) = &*account_guard {
-            return Ok(account.clone());
-        }
-    }
-
-    Err("Not logged in".to_string())
-}
-
-pub async fn get_developer_session() -> Result<DeveloperSession, String> {
-    let account = get_account()?;
-
-    let mut dev_session = DeveloperSession::new(account);
-
-    let teams = match dev_session.list_teams().await {
-        Ok(t) => t,
-        Err(e) => {
-            // This code means we have been logged in for too long and we must relogin again
-            let is_22411 = match &e {
-                isideload::Error::Auth(code, _) => *code == -22411,
-                isideload::Error::DeveloperSession(code, _) => *code == -22411,
-                _ => false,
-            };
-            if is_22411 {
-                invalidate_account();
-                return Err(format!("Session timed out, please try again: {:?}", e));
-            } else {
-                return Err(format!("Failed to list teams: {:?}", e));
-            }
-        }
-    };
-
-    dev_session.set_team(teams[0].clone());
-
-    Ok(dev_session)
+pub fn invalidate_account(sideloader_state: State<'_, SideloaderMutex>) {
+    let mut sideloader_guard = sideloader_state.lock().unwrap();
+    *sideloader_guard = None;
 }
 
 async fn login(
-    handle: &AppHandle,
     window: &Window,
-    email: String,
-    password: String,
+    email: &str,
+    password: &str,
     anisette_server: String,
-) -> Result<Arc<AppleAccount>, String> {
-    let (tx, rx) = std::sync::mpsc::channel::<String>();
+) -> Result<Sideloader, String> {
     let window_clone = window.clone();
-    let tfa_closure = move || -> Result<String, String> {
+    let tfa_closure = move || -> Option<String> {
         window_clone
             .emit("2fa-required", ())
             .expect("Failed to emit 2fa-required event");
 
-        let tx = tx.clone();
+        let (tx, rx) = std::sync::mpsc::channel::<String>();
         let handler_id = window_clone.listen("2fa-recieved", move |event| {
             let code = event.payload();
             let _ = tx.send(code.to_string());
@@ -178,108 +135,190 @@ async fn login(
         match result {
             Ok(code) => {
                 let code = code.trim_matches('"').to_string();
-                Ok(code)
+                Some(code)
             }
-            Err(RecvTimeoutError::Timeout) => Err("2FA cancelled or timed out".to_string()),
-            Err(RecvTimeoutError::Disconnected) => Err("2FA disconnected".to_string()),
+            Err(_) => None,
         }
     };
 
-    let config = AnisetteConfiguration::default();
-    let config =
-        config.set_configuration_path(handle.path().app_config_dir().map_err(|e| e.to_string())?);
     let anisette_url = if !anisette_server.starts_with("http") {
         format!("https://{}", anisette_server)
     } else {
         anisette_server
     };
-    let config = config.set_anisette_url_v3(anisette_url);
 
-    let account = AppleAccount::login(
-        || Ok((email.clone().to_lowercase(), password.clone())),
-        tfa_closure,
-        config,
+    let mut account = AppleAccount::builder(email)
+        .anisette_provider(
+            RemoteV3AnisetteProvider::default()
+                .set_serial_number("iloader".to_string())
+                .set_url(&anisette_url),
+        )
+        .login(password, tfa_closure)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let dev_session = DeveloperSession::from_account(&mut account)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(
+        // TODO: Team Selection
+        SideloaderBuilder::new(dev_session, account.email)
+            .machine_name("iloader".to_string())
+            .storage(Box::new(KeyringStorage::new("iloader".to_string())))
+            .build(),
     )
-    .await;
-    if let Err(e) = account {
-        return Err(e.to_string());
-    }
-    let account = Arc::new(account.unwrap());
-
-    Ok(account)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CertificateInfo {
-    pub name: String,
-    pub certificate_id: String,
-    pub serial_number: String,
-    pub machine_name: String,
-    pub machine_id: String,
+    pub name: Option<String>,
+    pub certificate_id: Option<String>,
+    pub serial_number: Option<String>,
+    pub machine_name: Option<String>,
+    pub machine_id: Option<String>,
 }
 
 #[tauri::command]
-pub async fn get_certificates() -> Result<Vec<CertificateInfo>, String> {
-    let dev_session = get_developer_session().await?;
-    let team = dev_session
-        .get_team()
-        .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    let certificates = dev_session
-        .list_all_development_certs(DeveloperDeviceType::Ios, &team)
-        .await
-        .map_err(|e| format!("Failed to get development certificates: {:?}", e))?;
-    Ok(certificates
-        .into_iter()
-        .map(|cert| CertificateInfo {
-            name: cert.name,
-            certificate_id: cert.certificate_id,
-            serial_number: cert.serial_number,
-            machine_name: cert.machine_name,
-            machine_id: cert.machine_id,
-        })
-        .collect())
+pub async fn get_certificates(
+    sideloader_state: State<'_, SideloaderMutex>,
+) -> Result<Vec<CertificateInfo>, String> {
+    let mut sideloader = {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        match sideloader_guard.take() {
+            Some(s) => s,
+            None => return Err("Not logged in".to_string()),
+        }
+    };
+
+    let result = async {
+        let team = sideloader.get_team().await.map_err(|e| e.to_string())?;
+        let dev_session = sideloader.get_dev_session();
+
+        let certificates = dev_session
+            .list_all_development_certs(&team, None)
+            .await
+            .map_err(|e| format!("Failed to get development certificates: {:?}", e))?;
+
+        Ok(certificates
+            .into_iter()
+            .map(|cert| CertificateInfo {
+                name: cert.name,
+                certificate_id: cert.certificate_id,
+                serial_number: cert.serial_number,
+                machine_name: cert.machine_name,
+                machine_id: cert.machine_id,
+            })
+            .collect())
+    }
+    .await;
+
+    {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        *sideloader_guard = Some(sideloader);
+    }
+
+    result
 }
 
 #[tauri::command]
-pub async fn revoke_certificate(serial_number: String) -> Result<(), String> {
-    let dev_session = get_developer_session().await?;
-    let team = dev_session
-        .get_team()
-        .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    dev_session
-        .revoke_development_cert(DeveloperDeviceType::Ios, &team, &serial_number)
-        .await
-        .map_err(|e| format!("Failed to revoke development certificates: {:?}", e))?;
-    Ok(())
+pub async fn revoke_certificate(
+    serial_number: String,
+    sideloader_state: State<'_, SideloaderMutex>,
+) -> Result<(), String> {
+    let mut sideloader = {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        match sideloader_guard.take() {
+            Some(s) => s,
+            None => return Err("Not logged in".to_string()),
+        }
+    };
+
+    let result = async {
+        let team = sideloader.get_team().await.map_err(|e| e.to_string())?;
+        let dev_session = sideloader.get_dev_session();
+
+        dev_session
+            .revoke_development_cert(&team, &serial_number, None)
+            .await
+            .map_err(|e| format!("Failed to revoke development certificates: {:?}", e))?;
+
+        Ok(())
+    }
+    .await;
+
+    {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        *sideloader_guard = Some(sideloader);
+    }
+
+    result
 }
 
 #[tauri::command]
-pub async fn list_app_ids() -> Result<ListAppIdsResponse, String> {
-    let dev_session = get_developer_session().await?;
-    let team = dev_session
-        .get_team()
-        .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    let app_ids = dev_session
-        .list_app_ids(DeveloperDeviceType::Ios, &team)
-        .await
-        .map_err(|e| format!("Failed to list App IDs: {:?}", e))?;
-    Ok(app_ids)
+pub async fn list_app_ids(
+    sideloader_state: State<'_, SideloaderMutex>,
+) -> Result<ListAppIdsResponse, String> {
+    let mut sideloader = {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        match sideloader_guard.take() {
+            Some(s) => s,
+            None => return Err("Not logged in".to_string()),
+        }
+    };
+
+    let result = async {
+        let team = sideloader.get_team().await.map_err(|e| e.to_string())?;
+        let dev_session = sideloader.get_dev_session();
+
+        let response = dev_session
+            .list_app_ids(&team, None)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok(response.clone())
+    }
+    .await;
+
+    {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        *sideloader_guard = Some(sideloader);
+    }
+
+    result
 }
 
 #[tauri::command]
-pub async fn delete_app_id(app_id_id: String) -> Result<(), String> {
-    let dev_session = get_developer_session().await?;
-    let team = dev_session
-        .get_team()
-        .await
-        .map_err(|e| format!("Failed to get developer team: {:?}", e))?;
-    dev_session
-        .delete_app_id(DeveloperDeviceType::Ios, &team, app_id_id)
-        .await
-        .map_err(|e| format!("Failed to delete App ID: {:?}", e))?;
-    Ok(())
+pub async fn delete_app_id(
+    app_id_id: String,
+    sideloader_state: State<'_, SideloaderMutex>,
+) -> Result<(), String> {
+    let mut sideloader = {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        match sideloader_guard.take() {
+            Some(s) => s,
+            None => return Err("Not logged in".to_string()),
+        }
+    };
+
+    let result = async {
+        let team = sideloader.get_team().await.map_err(|e| e.to_string())?;
+        let dev_session = sideloader.get_dev_session();
+
+        dev_session
+            .delete_app_id(&team, &app_id_id, None)
+            .await
+            .map_err(|e| format!("Failed to delete App ID: {:?}", e))?;
+
+        Ok(())
+    }
+    .await;
+
+    {
+        let mut sideloader_guard = sideloader_state.lock().unwrap();
+        *sideloader_guard = Some(sideloader);
+    }
+
+    result
 }

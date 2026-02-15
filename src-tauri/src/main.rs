@@ -10,5 +10,6 @@ fn main() {
         }
     }
 
+    isideload::init().expect("Failed to initialize error reporting");
     iloader_lib::run()
 }
