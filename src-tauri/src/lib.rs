@@ -12,8 +12,7 @@ mod operation;
 use crate::{
     account::{
         delete_account, delete_app_id, get_certificates, invalidate_account, list_app_ids,
-        logged_in_as, login_email_pass, login_stored_pass, reset_anisette_state,
-        revoke_certificate,
+        logged_in_as, login_new, login_stored, reset_anisette_state, revoke_certificate,
     },
     device::{list_devices, set_selected_device, DeviceInfoMutex},
     pairing::{installed_pairing_apps, place_pairing_cmd},
@@ -42,10 +41,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            login_email_pass,
+            login_new,
             invalidate_account,
             logged_in_as,
-            login_stored_pass,
+            login_stored,
             delete_account,
             list_devices,
             sideload_operation,

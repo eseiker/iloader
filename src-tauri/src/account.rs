@@ -19,14 +19,14 @@ use tauri_plugin_store::StoreExt;
 use crate::sideload::{SideloaderGuard, SideloaderMutex};
 
 #[tauri::command]
-pub async fn login_email_pass(
+pub async fn login_new(
     handle: AppHandle,
     window: Window,
+    sideloader_state: State<'_, SideloaderMutex>,
     email: String,
     password: String,
     anisette_server: String,
     save_credentials: bool,
-    sideloader_state: State<'_, SideloaderMutex>,
 ) -> Result<(), String> {
     let account = login(&window, &email, &password, anisette_server).await?;
     let mut sideloader_guard = sideloader_state.lock().unwrap();
@@ -57,7 +57,7 @@ pub async fn login_email_pass(
 }
 
 #[tauri::command]
-pub async fn login_stored_pass(
+pub async fn login_stored(
     window: Window,
     email: String,
     anisette_server: String,

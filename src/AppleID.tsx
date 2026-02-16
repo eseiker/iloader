@@ -108,7 +108,7 @@ export const AppleID = ({
                         className="action-button primary"
                         onClick={() => {
                           let promise = async () => {
-                            await invoke("login_stored_pass", {
+                            await invoke("login_stored", {
                               email: id,
                               anisetteServer,
                             });
@@ -185,7 +185,7 @@ export const AppleID = ({
               <button
                 onClick={async () => {
                   let promise = async () => {
-                    await invoke("login_email_pass", {
+                    await invoke("login_new", {
                       email: emailInput,
                       password: passwordInput,
                       saveCredentials: saveCredentials,
