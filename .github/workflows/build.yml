@@ -28,6 +28,12 @@ jobs:
             args: "--bundles rpm"
           - platform: "ubuntu-22.04"
             args: "--bundles appimage"
+          - platform: "ubuntu-22.04-arm"
+            args: "--bundles appimage"
+          - platform: "ubuntu-22.04-arm"
+            args: "--bundles deb"
+          - platform: "ubuntu-22.04-arm"
+            args: "--bundles rpm"
           - platform: "windows-latest"
             args: ""
           - platform: "macos-latest"
@@ -150,6 +156,24 @@ jobs:
         with:
           name: linux-appimage
           path: ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.AppImage
+
+      - name: Upload Linux DEB (ARM)
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'ubuntu-22.04-arm' && matrix.args == '--bundles deb'
+        with:
+          name: linux-deb-arm
+
+      - name: Upload Linux RPM (ARM)
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'ubuntu-22.04-arm' && matrix.args == '--bundles rpm'
+        with:
+          name: linux-rpm-arm
+
+      - name: Upload Linux AppImage (ARM)
+        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'ubuntu-22.04-arm' && matrix.args == '--bundles appimage'
+        with:
+          name: linux-appimage-arm
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
