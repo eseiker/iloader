@@ -186,7 +186,7 @@
     "info": "Info",
     "warn": "Warn",
     "error": "Error",
-    "language_hint": "You can help update or add translations <translation>here</translation>."
+    "language_hint": "You can help with translations <translation>here</translation>."
   },
   "dialog": {
     "confirm": "Confirm",
