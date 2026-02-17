@@ -10,7 +10,7 @@
         "copy_to_clipboard": "Copy to clipboard",
         "more_details": "More Details",
         "no_error": "No error",
-        "copied_sucess": "Copied to clipboard"
+        "copied_success": "Copied to clipboard"
     },
     "dropdown": {
         "custom_value": "Custom value",

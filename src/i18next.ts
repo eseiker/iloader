@@ -7,6 +7,7 @@ export const languages = [
     ['es', 'Español'],
     ['fr', 'Français'],
     ['ar', 'العربية'],
+    ['it', 'Italiano'],
 ] as const;
 
 type TranslationResource = Record<string, unknown>;

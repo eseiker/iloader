@@ -151,7 +151,7 @@ export default ({
                 operationState.failed[0]?.extraDetails?.replace(/^\n+/, "") ??
                 t("common.no_error"),
               );
-              toast.success(t("common.copied_sucess"));
+              toast.success(t("common.copied_success"));
             }}
           >
             {t("operation.copy_error_clipboard")}

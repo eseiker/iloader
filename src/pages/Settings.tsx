@@ -118,7 +118,7 @@ export const Settings = ({ showHeading = true }: SettingsProps) => {
                     )
                     .join("\n");
                   navigator.clipboard.writeText(logText);
-                  toast.success(t("common.copied_sucess"));
+                  toast.success(t("common.copied_success"));
                 }}
               >
                 {t("common.copy_to_clipboard")}

@@ -59,7 +59,7 @@ export const ErrorProvider: React.FC<{ children: React.ReactNode }> = ({
                 navigator.clipboard.writeText(
                   error?.replace(/^\n+/, "") ?? t("common.no_error"),
                 );
-                toast.success(t("common.copied_sucess"));
+                toast.success(t("common.copied_success"));
               }}
             >
               {t("common.copy_to_clipboard")}
