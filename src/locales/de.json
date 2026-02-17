@@ -10,7 +10,7 @@
     "copy_to_clipboard": "In die Zwischenablage kopieren",
     "more_details": "Weitere Details",
     "no_error": "Kein Fehler",
-    "copied_sucess": "In die Zwischenablage kopiert"
+    "copied_success": "In die Zwischenablage kopiert"
   },
   "dropdown": {
     "custom_value": "Benutzerdefinierter Wert",
