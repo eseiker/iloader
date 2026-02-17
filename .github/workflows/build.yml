@@ -64,7 +64,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04' || matrix.platform == 'ubuntu-22.04-arm'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf perl make
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf perl make xdg-utils
 
       - name: Add MSVC to PATH
         if: matrix.platform == 'windows-latest'
@@ -162,19 +162,22 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04-arm' && matrix.args == '--bundles deb'
         with:
           name: linux-deb-arm
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.deb
 
       - name: Upload Linux RPM (ARM)
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'ubuntu-22.04-arm' && matrix.args == '--bundles rpm'
         with:
           name: linux-rpm-arm
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.rpm
 
       - name: Upload Linux AppImage (ARM)
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'ubuntu-22.04-arm' && matrix.args == '--bundles appimage'
         with:
           name: linux-appimage-arm
-
+          path: ${{ github.workspace }}/src-tauri/target/release/bundle/**/*.AppImage
+          
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'windows-latest'
