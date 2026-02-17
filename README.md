@@ -91,7 +91,7 @@ Thank you to everyone who has contributed translations! See the [Translating](#t
 
 - [TNT-333](https://github.com/TNT-333): German (de)
 - [basketshoe](https://github.com/basketshoe): Italian (it)
-- [baocreata](https://github.com/baecreata): Vietnamese (vt)
+- [baocreata](https://github.com/baocreata): Vietnamese (vt)
 - [IamArayel](https://github.com/IamArayel): French (fr)
 
 ## Future Plans
