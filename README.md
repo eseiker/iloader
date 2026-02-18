@@ -97,6 +97,10 @@ Thank you to everyone who has contributed translations! See the [Translating](#t
 ## Future Plans
 
 - Team selection when an account has multiple teams
+- Auto-refresh installed apps
+  - Minimize to tray
+  - Detect installed apps
+  - Refresh apps automatically
 - Set a "default" account to automatically log into
 - Import SideStore account info automatically
 - Mount DDI and open sidestore after installation

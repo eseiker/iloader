@@ -181,7 +181,7 @@ async fn login(
         )
     };
 
-    let mut account = AppleAccount::builder(email)
+    let mut account = AppleAccount::builder(&email.to_lowercase())
         .anisette_provider(
             RemoteV3AnisetteProvider::default()
                 .set_serial_number("0".to_string())
@@ -228,7 +228,7 @@ async fn login(
 
     Ok(
         // TODO: Team Selection
-        SideloaderBuilder::new(dev_session, account.email)
+        SideloaderBuilder::new(dev_session, email.to_lowercase())
             .machine_name("iloader".to_string())
             .storage(sideloader_storage)
             .max_certs_behavior(MaxCertsBehavior::Prompt(Box::new(max_certs_callback)))
