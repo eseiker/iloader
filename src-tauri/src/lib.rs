@@ -50,7 +50,7 @@ pub fn run() {
                 .with_writer(file_appender)
                 .with_target(true)
                 .with_ansi(false)
-                .with_filter(tracing_subscriber::filter::LevelFilter::TRACE);
+                .with_filter(tracing_subscriber::filter::LevelFilter::DEBUG);
 
             let frontend_layer = logging::FrontendLoggingLayer::new(app.handle().clone())
                 .with_filter(tracing_subscriber::filter::LevelFilter::DEBUG);
@@ -59,6 +59,35 @@ pub fn run() {
                 .with(file_layer)
                 .with(frontend_layer)
                 .init();
+
+            std::panic::set_hook(Box::new(|panic_info| {
+                let thread = std::thread::current();
+                let thread_name = thread.name().unwrap_or("<unnamed>");
+
+                let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "<non-string panic payload>".to_string()
+                };
+
+                let location = panic_info
+                    .location()
+                    .map(|loc| format!("{}:{}", loc.file(), loc.line()))
+                    .unwrap_or_else(|| "<unknown>".to_string());
+
+                let backtrace = std::backtrace::Backtrace::capture();
+
+                tracing::error!(
+                    target: "panic",
+                    thread = thread_name,
+                    location = location,
+                    message = message,
+                    backtrace = %backtrace,
+                    "panic captured"
+                );
+            }));
 
             app.manage(DeviceInfoMutex::new(None));
             app.manage(SideloaderMutex::new(None));
