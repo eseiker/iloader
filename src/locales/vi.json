@@ -134,7 +134,7 @@
     "loaded_success": "Tải các ID ứng dụng thành công",
     "failed_load": "Tải các ID ứng dụng thất bại!",
     "deleted_success": "Đã xóa ID ứng dụng thành công",
-    "failed_delete": "Xoa ID ứng dụng thất bại",
+    "failed_delete": "Xóa ID ứng dụng thất bại",
     "available": "Đang còn {{available}}/{{max}} chỗ cài ứng dụng",
     "none_found": "Không thấy ID ứng dụng nào cả~",
     "name": "Tên",
@@ -195,7 +195,7 @@
   "error": {
     "title": "Một lỗi đã xảy ra: {{msg}}",
     "unknown": "Không xác định",
-    "support_message": "Nếu vấn đề vẫn tiếp diễn, bấm \"Sao chép vào bộ nhớ tạm\" và gửi đến server <discord>Discord</discord> hoặc một <github>vấn đề Github</github> for support."
+    "support_message": "Nếu vấn đề vẫn tiếp diễn, bấm \"Sao chép vào bộ nhớ tạm\" và gửi đến server <discord>Discord</discord> hoặc một <github>vấn đề Github</github> để được hỗ trợ."
   },
   "update": {
     "new_version_available": "Có phiên bản mới: {{version}}. Bạn có muốn cập nhật không?",
